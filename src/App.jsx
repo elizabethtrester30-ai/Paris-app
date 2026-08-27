@@ -388,7 +388,7 @@ function ArrivalGate({ target, onArrive, tone }) {
   const [pinged, setPinged] = useState(false);
 
   useEffect(() => {
-    if (arrived && !pinged) { setPinged(true); tone.chime(); }
+    if (arrived && !pinged) { setPinged(true); tone.telegraph(); }
   }, [arrived, pinged, tone]);
 
   if (status === 'denied' || status === 'unsupported') {
