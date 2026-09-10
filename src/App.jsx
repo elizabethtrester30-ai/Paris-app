@@ -531,8 +531,52 @@ function ArrivalGate({ target, onArrive, tone }) {
    SCREEN DATA
 ========================================================= */
 
+const SAVE_KEY = 'missing-champagne-progress';
+
+function loadSavedScreen() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    const n = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function saveScreen(n) {
+  try { localStorage.setItem(SAVE_KEY, String(n)); } catch (e) { /* ignore */ }
+}
+
+function clearSavedScreen() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+}
+
+/* ---------- resume-or-start-over gate, shown once on load if progress exists ---------- */
+
+function ResumeGate({ savedScreen, onResume, onStartOver }) {
+  return (
+    <Screen bg="#050403">
+      <Seal size={90} />
+      <div style={{ fontFamily: "'Special Elite', monospace", color: COLORS.parchment, fontSize: '18px', letterSpacing: '3px', margin: '26px 0 8px', textAlign: 'center' }}>
+        WELCOME BACK, AGENT
+      </div>
+      <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', color: `${COLORS.parchment}bb`, fontSize: '14px', textAlign: 'center', maxWidth: '320px', marginBottom: '30px' }}>
+        Your dossier was left open. Pick up where you left off, or start the case again from the beginning.
+      </p>
+      <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <GlowButton pulse onClick={onResume}>Resume Mission</GlowButton>
+        <GlowButton onClick={onStartOver} style={{ background: 'transparent', color: COLORS.parchment, border: `1px solid ${COLORS.gold}88`, boxShadow: 'none' }}>
+          Start Over
+        </GlowButton>
+      </div>
+    </Screen>
+  );
+}
+
 export default function MissingChampagneApp() {
   useFonts();
+  const [savedScreen] = useState(() => loadSavedScreen());
+  const [resumeChoiceMade, setResumeChoiceMade] = useState(() => loadSavedScreen() === 0);
   const [screen, setScreen] = useState(0);
   const [obs, setObs] = useState('');
   const [agentName, setAgentName] = useState('');
@@ -541,10 +585,24 @@ export default function MissingChampagneApp() {
   const next = () => setScreen(s => s + 1);
 
   useEffect(() => {
+    if (resumeChoiceMade) saveScreen(screen);
+  }, [screen, resumeChoiceMade]);
+
+  useEffect(() => {
     if (screen === 16) {
       setWaitReady(false);
     }
   }, [screen]);
+
+  if (!resumeChoiceMade) {
+    return (
+      <ResumeGate
+        savedScreen={savedScreen}
+        onResume={() => { setScreen(savedScreen); setResumeChoiceMade(true); }}
+        onStartOver={() => { clearSavedScreen(); setScreen(0); setResumeChoiceMade(true); }}
+      />
+    );
+  }
 
   /* ---------- 0: opening seal ---------- */
   if (screen === 0) {
@@ -1044,6 +1102,7 @@ export default function MissingChampagneApp() {
 
   /* ---------- 30: certificate ---------- */
   if (screen === 30) {
+    clearSavedScreen();
     return <Certificate agentName={agentName} setAgentName={setAgentName} />;
   }
 
