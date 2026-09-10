@@ -55,7 +55,7 @@ const LOCATIONS = {
   beauxArts: { name: 'École des Beaux-Arts', lat: 48.8566, lng: 2.3352, radius: 70 },
   procope: { name: 'Le Procope', lat: 48.8532, lng: 2.3387, radius: 60 },
   jacquemart: { name: 'Musée Jacquemart-André', lat: 48.8747, lng: 2.3095, radius: 70 },
-  castellane: { name: 'Castellane, Épernay', lat: 49.0429, lng: 3.9610, radius: 100 },
+  mercier: { name: 'Champagne Mercier, Épernay', lat: 49.0407, lng: 3.9716, radius: 90 },
 };
 
 function haversineMeters(lat1, lng1, lat2, lng2) {
@@ -383,6 +383,105 @@ function AntiqueMap({ target, label, sublabel, visited = [] }) {
 
 /* ---------- GPS arrival gate: shown on every map screen ---------- */
 
+/* ---------- Épernay Screen 3: arrival at Mercier, the assignment, self-paced tour ---------- */
+
+function MercierArrival({ tone, onReturn }) {
+  const { distance, arrived, status, forceArrive } = useProximity(LOCATIONS.mercier, true);
+  const [pinged, setPinged] = useState(false);
+
+  useEffect(() => {
+    if (arrived && !pinged) { setPinged(true); tone.telegraph(); }
+  }, [arrived, pinged, tone]);
+
+  const gpsUnavailable = status === 'denied' || status === 'unsupported';
+  const showAssignment = arrived || gpsUnavailable;
+
+  return (
+    <Screen>
+      <AntiqueMap target={LOCATIONS.mercier} label="CHAMPAGNE MERCIER — ÉPERNAY" />
+      {!showAssignment ? (
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", color: COLORS.parchment, fontStyle: 'italic', opacity: 0.7, marginBottom: '10px' }}>
+            {distance != null ? `${Math.round(distance)}m away — keep walking...` : 'Locating you...'}
+          </div>
+          <button onClick={forceArrive} style={{
+            background: 'none', border: 'none', color: `${COLORS.parchment}66`, fontFamily: "'Cormorant Garamond', serif",
+            fontSize: '11px', textDecoration: 'underline', cursor: 'pointer', fontStyle: 'italic'
+          }}>
+            (testing — confirm arrival manually)
+          </button>
+        </div>
+      ) : (
+        <DossierPage>
+          <Handwriting speaker="claude" lines={[
+            'You have arrived.',
+            'Daphne came to Épernay searching for what Pierre and I had hidden.',
+            'Your assignment is below.',
+            'Take the cellar train. Observe everything.',
+            'I will contact you when you return.'
+          ]} />
+          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: '13px', color: `${COLORS.ink}88`, marginBottom: '16px' }}>
+            This is your opportunity to explore Champagne Mercier — put the phone away, and enjoy.
+          </p>
+          <div style={{ textAlign: 'center' }}>
+            <GlowButton onClick={() => { tone.telegraph(); onReturn(); }}>I've Returned</GlowButton>
+          </div>
+        </DossierPage>
+      )}
+    </Screen>
+  );
+}
+
+/* ---------- Opening screen: tap-to-begin unlocks audio reliably ---------- */
+
+function OpeningScreen({ tone, onOpenDossier }) {
+  const [began, setBegan] = useState(false);
+  const [showButton, setShowButton] = useState(false);
+  const trainRef = useRef(null);
+
+  const begin = () => {
+    if (began) return;
+    setBegan(true);
+    tone.sealThud();
+    if (trainRef.current) {
+      trainRef.current.volume = 0.35;
+      trainRef.current.play().catch(() => {});
+    }
+    setTimeout(() => setShowButton(true), 2200);
+  };
+
+  const openDossier = () => {
+    if (trainRef.current) trainRef.current.pause();
+    tone.pageTurn();
+    onOpenDossier();
+  };
+
+  return (
+    <Screen bg="#050403">
+      <audio ref={trainRef} loop src="/audio/steam-train.mp3" style={{ display: 'none' }} />
+      <div
+        onClick={begin}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: began ? 'default' : 'pointer' }}
+      >
+        <div style={{ fontFamily: "'Special Elite', monospace", color: '#8a7a5f', fontSize: '11px', letterSpacing: '4px', marginBottom: '26px', opacity: 0.7 }}>
+          {began ? '~ distant steam train ~' : '~ tap to begin ~'}
+        </div>
+        <Seal size={120} />
+        <div style={{ fontFamily: "'Special Elite', monospace", color: COLORS.parchment, fontSize: '22px', letterSpacing: '6px', marginTop: '30px' }}>
+          CONFIDENTIAL
+        </div>
+        <div style={{ fontFamily: "'Cormorant Garamond', serif", color: COLORS.gold, fontSize: '15px', letterSpacing: '3px', marginTop: '6px', fontStyle: 'italic' }}>
+          Case #001
+        </div>
+      </div>
+      <div style={{ marginTop: '40px', minHeight: '50px' }}>
+        {showButton && <GlowButton pulse onClick={openDossier}>Open Dossier</GlowButton>}
+      </div>
+    </Screen>
+  );
+}
+
+
 function ArrivalGate({ target, onArrive, tone }) {
   const { distance, arrived, status } = useProximity(target, true);
   const [pinged, setPinged] = useState(false);
@@ -449,26 +548,7 @@ export default function MissingChampagneApp() {
 
   /* ---------- 0: opening seal ---------- */
   if (screen === 0) {
-    return (
-      <Screen bg="#050403">
-        <audio autoPlay loop src="/audio/steam-train.mp3" style={{ display: 'none' }} onError={(e) => { e.target.style.display = 'none'; }} />
-        <div style={{ fontFamily: "'Special Elite', monospace", color: '#8a7a5f', fontSize: '11px', letterSpacing: '4px', marginBottom: '26px', opacity: 0.7 }}>
-          ~ distant steam train ~
-        </div>
-        <div onClick={() => tone.sealThud()}>
-          <Seal size={120} />
-        </div>
-        <div style={{ fontFamily: "'Special Elite', monospace", color: COLORS.parchment, fontSize: '22px', letterSpacing: '6px', marginTop: '30px' }}>
-          CONFIDENTIAL
-        </div>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", color: COLORS.gold, fontSize: '15px', letterSpacing: '3px', marginTop: '6px', fontStyle: 'italic' }}>
-          Case #001
-        </div>
-        <div style={{ marginTop: '40px' }}>
-          <GlowButton pulse onClick={() => { tone.pageTurn(); next(); }}>Open Dossier</GlowButton>
-        </div>
-      </Screen>
-    );
+    return <OpeningScreen tone={tone} onOpenDossier={next} />;
   }
 
   /* ---------- 1: Claude accept mission ---------- */
@@ -893,25 +973,15 @@ export default function MissingChampagneApp() {
     );
   }
 
-  /* ---------- 26: map + arrival at Castellane, Épernay (real GPS) ---------- */
+  /* ---------- 26: ÉPERNAY SCREEN 2 — the map, Mercier glows ---------- */
   if (screen === 26) {
     return (
       <Screen>
-        <AntiqueMap target={LOCATIONS.castellane} label="CASTELLANE — ÉPERNAY" />
-        <ArrivalGate target={LOCATIONS.castellane} onArrive={next} tone={tone} />
-      </Screen>
-    );
-  }
-
-  /* ---------- 27: Pierre at Castellane ---------- */
-  if (screen === 27) {
-    return (
-      <Screen>
-        <AntiqueMap target={LOCATIONS.castellane} label="CASTELLANE — ÉPERNAY" />
+        <AntiqueMap target={LOCATIONS.mercier} label="CHAMPAGNE MERCIER — ÉPERNAY" />
         <DossierPage>
-          <Handwriting speaker="pierre" lines={[
-            'The trail leads here. The champagne houses hold many secrets.',
-            'Will we find Isabella?'
+          <Handwriting speaker="claude" lines={[
+            'The trail has led us beneath Épernay.',
+            'Will we find Isabella here?'
           ]} />
           <GlowButton onClick={next}>Continue Mission</GlowButton>
         </DossierPage>
@@ -919,7 +989,12 @@ export default function MissingChampagneApp() {
     );
   }
 
-  /* ---------- 28: climax ---------- */
+  /* ---------- 27: ÉPERNAY SCREEN 3 — arrival at Mercier, the assignment, self-paced tour ---------- */
+  if (screen === 27) {
+    return <MercierArrival tone={tone} onReturn={next} />;
+  }
+
+  /* ---------- 28: ÉPERNAY SCREEN 4 — after the tour, the ending ---------- */
   if (screen === 28) {
     return (
       <Screen bg="#050403">
@@ -927,45 +1002,25 @@ export default function MissingChampagneApp() {
           TRANSMISSION RECEIVED
         </div>
         <DossierPage>
-          <Handwriting speaker="pierre" lines={[
-            'We were too late.',
-            'The Duke has already left... with Daphne!!!'
+          <Handwriting speaker="claude" lines={[
+            'The Duke has already left Épernay... with Daphne.',
+            'He believes she is Isabella.'
           ]} />
-          <Handwriting speaker="pierre" lines={[
-            'He believes she is Isabella.',
-            'Isabella has returned to the person she was always meant to find. Jacques-Louis David.',
-            'And the Champagne... remains safe.',
-            'As the Duke will discover the truth eventually... so will you.'
+          <p style={{ fontFamily: "'Dancing Script', cursive", fontSize: '22px', color: '#3a1d14', margin: '14px 0' }}>
+            Isabella? Did you finish the story?
+          </p>
+          <Handwriting speaker="claude" lines={[
+            'Just as the Duke will discover eventually...',
+            'so will you.'
           ]} />
-          <p style={{ fontFamily: "'Dancing Script', cursive", fontSize: '24px', color: '#3a1d14', margin: '14px 0' }}>
-            But Isabella is safe.
-          </p>
-          <GlowButton pulse onClick={next}>Continue</GlowButton>
-        </DossierPage>
-      </Screen>
-    );
-  }
-
-  /* ---------- 29: invitation to explore Champagne Alley (last stop before Mission Complete) ---------- */
-  if (screen === 29) {
-    return (
-      <Screen bg={`linear-gradient(160deg, ${COLORS.leather}, ${COLORS.leatherLight})`}>
-        <DossierPage>
-          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: '17px', color: COLORS.ink, textAlign: 'center', lineHeight: 1.7, marginBottom: '20px' }}>
-            This is your opportunity to explore the world of Champagne in Épernay.
-            <br /><br />
-            Walk Champagne Alley, and enjoy.
-          </p>
-          <div style={{ textAlign: 'center' }}>
-            <GlowButton onClick={next}>Complete Mission</GlowButton>
-          </div>
+          <GlowButton pulse onClick={next}>Complete Mission</GlowButton>
         </DossierPage>
       </Screen>
     );
   }
 
   /* ---------- 29: mission complete ---------- */
-  if (screen === 30) {
+  if (screen === 29) {
     return (
       <Screen bg="#050403">
         <Seal size={110} cracked />
@@ -988,7 +1043,7 @@ export default function MissingChampagneApp() {
   }
 
   /* ---------- 30: certificate ---------- */
-  if (screen === 31) {
+  if (screen === 30) {
     return <Certificate agentName={agentName} setAgentName={setAgentName} />;
   }
 
